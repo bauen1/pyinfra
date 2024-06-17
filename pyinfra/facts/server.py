@@ -347,7 +347,11 @@ class Groups(FactBase[List[str]]):
     Returns a list of groups on the system.
     """
 
-    command = "cat /etc/group"
+    # getent will return the same output as `cat /etc/groups` but will
+    # respect nsswitch.conf settings, e.g. for using LDAP as additional source
+    # Note, that LDAP e.g. using sssd might be configured to not enumerate
+    # all groups / users, in which case only the local groups will be returned
+    command = "getent group"
     default = list
 
     def process(self, output) -> list[str]:
