@@ -58,7 +58,7 @@ class SystemdStatus(FactBase[Dict[str, bool]]):
     default = dict
 
     state_key = "SubState"
-    state_values = ["running", "waiting", "exited"]
+    state_values = ["running", "waiting", "exited", "listening"]
 
     def command(
         self,
