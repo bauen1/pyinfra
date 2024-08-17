@@ -24,6 +24,7 @@ from pyinfra.facts.server import Date
 from . import files
 from .util.packaging import ensure_packages
 
+# TODO: Debian might provide "/var/lib/apt/periodic/update-stamp"
 APT_UPDATE_FILENAME = "/var/lib/apt/periodic/update-success-stamp"
 
 
