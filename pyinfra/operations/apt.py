@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from pyinfra import host
 from pyinfra.api import OperationError, operation
-from pyinfra.facts.apt import AptKeys, AptSources, parse_apt_repo
+from pyinfra.facts.apt import AptKeys, AptSources, parse_apt_repo, AptDistUpgradeWillChange, noninteractive_apt
 from pyinfra.facts.deb import DebPackage, DebPackages
 from pyinfra.facts.files import File
 from pyinfra.facts.gpg import GpgKey
@@ -19,23 +19,6 @@ from . import files
 from .util.packaging import ensure_packages
 
 APT_UPDATE_FILENAME = "/var/lib/apt/periodic/update-success-stamp"
-
-
-def noninteractive_apt(command: str, force=False):
-    args = ["DEBIAN_FRONTEND=noninteractive apt-get -y"]
-
-    if force:
-        args.append("--force-yes")
-
-    args.extend(
-        (
-            '-o Dpkg::Options::="--force-confdef"',
-            '-o Dpkg::Options::="--force-confold"',
-            command,
-        ),
-    )
-
-    return " ".join(args)
 
 
 @operation()
@@ -355,7 +338,7 @@ def upgrade(auto_remove: bool = False):
 _upgrade = upgrade  # noqa: E305 (for use below where update is a kwarg)
 
 
-@operation(is_idempotent=False)
+@operation()
 def dist_upgrade():
     """
     Updates all apt packages, employing dist-upgrade.
@@ -369,8 +352,15 @@ def dist_upgrade():
         )
     """
 
-    yield noninteractive_apt("dist-upgrade")
+    changes = host.get_fact(AptDistUpgradeWillChange)
 
+    if changes["upgraded"] == 0 and \
+            changes["newly_installed"] == 0 and \
+            changes["removed"] == 0 and \
+            changes["not_upgraded"] == 0:
+        host.noop("apt-get dist-upgrade would perform no changes")
+    else:
+        yield noninteractive_apt("dist-upgrade")
 
 @operation()
 def packages(

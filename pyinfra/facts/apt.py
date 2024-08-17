@@ -7,6 +7,27 @@ from pyinfra.api import FactBase
 from .gpg import GpgFactBase
 from .util import make_cat_files_command
 
+def noninteractive_apt(command: str, force=False):
+    args = ["DEBIAN_FRONTEND=noninteractive apt-get -y"]
+
+    if force:
+        args.append("--force-yes")
+
+    args.extend(
+        (
+            '-o Dpkg::Options::="--force-confdef"',
+            '-o Dpkg::Options::="--force-confold"',
+            command,
+        ),
+    )
+
+    return " ".join(args)
+
+
+APT_CHANGES_RE = re.compile(
+    r"^(\d+) upgraded, (\d+) newly installed, (\d+) to remove and (\d+) not upgraded.$"
+)
+
 
 def parse_apt_repo(name):
     regex = r"^(deb(?:-src)?)(?:\s+\[([^\]]+)\])?\s+([^\s]+)\s+([^\s]+)\s+([a-z-\s\d]*)$"
@@ -94,3 +115,30 @@ class AptKeys(GpgFactBase):
 
     def requires_command(self) -> str:
         return "apt-key"
+
+class AptDistUpgradeWillChange(FactBase):
+    """
+    Checks if 'apt-get dist-upgrade' will perform any changes.
+    """
+
+    def command(self) -> str:
+        return noninteractive_apt("dist-upgrade --dry-run")
+
+    def requires_command(self) -> str:
+        return "apt-get"
+
+    def process(self, output) -> bool:
+        # We are looking for a line similar to
+        # "3 upgraded, 0 newly installed, 0 to remove and 0 not upgraded."
+        for line in output:
+            result = APT_CHANGES_RE.match(line)
+            if result is not None:
+                return {
+                    "upgraded": int(result[1]),
+                    "newly_installed": int(result[2]),
+                    "removed": int(result[3]),
+                    "not_upgraded": int(result[4]),
+                }
+
+        # We did not find the line we expected:
+        raise Exception()
