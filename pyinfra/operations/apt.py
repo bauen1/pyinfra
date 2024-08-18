@@ -9,7 +9,13 @@ from urllib.parse import urlparse
 
 from pyinfra import host
 from pyinfra.api import OperationError, operation
-from pyinfra.facts.apt import AptKeys, AptSources, parse_apt_repo, AptDistUpgradeWillChange, noninteractive_apt
+from pyinfra.facts.apt import (
+    AptKeys,
+    AptSources,
+    SimulateOperationWillChange,
+    noninteractive_apt,
+    parse_apt_repo,
+)
 from pyinfra.facts.deb import DebPackage, DebPackages
 from pyinfra.facts.files import File
 from pyinfra.facts.gpg import GpgKey
@@ -19,6 +25,20 @@ from . import files
 from .util.packaging import ensure_packages
 
 APT_UPDATE_FILENAME = "/var/lib/apt/periodic/update-success-stamp"
+
+
+def _simulate_then_perform(command: str):
+    changes = host.get_fact(SimulateOperationWillChange, command)
+
+    if (
+        changes["upgraded"] == 0
+        and changes["newly_installed"] == 0
+        and changes["removed"] == 0
+        and changes["not_upgraded"] == 0
+    ):
+        host.noop(f"{command} skipped, no changes would be performed")
+    else:
+        yield noninteractive_apt(command)
 
 
 @operation()
@@ -304,7 +324,7 @@ def update(cache_time: int | None = None):
 _update = update  # noqa: E305
 
 
-@operation(is_idempotent=False)
+@operation()
 def upgrade(auto_remove: bool = False):
     """
     Upgrades all apt packages.
@@ -332,7 +352,7 @@ def upgrade(auto_remove: bool = False):
     if auto_remove:
         command.append("--autoremove")
 
-    yield noninteractive_apt(" ".join(command))
+    yield from _simulate_then_perform(" ".join(command))
 
 
 _upgrade = upgrade  # noqa: E305 (for use below where update is a kwarg)
@@ -352,15 +372,8 @@ def dist_upgrade():
         )
     """
 
-    changes = host.get_fact(AptDistUpgradeWillChange)
+    yield from _simulate_then_perform("dist-upgrade")
 
-    if changes["upgraded"] == 0 and \
-            changes["newly_installed"] == 0 and \
-            changes["removed"] == 0 and \
-            changes["not_upgraded"] == 0:
-        host.noop("apt-get dist-upgrade would perform no changes")
-    else:
-        yield noninteractive_apt("dist-upgrade")
 
 @operation()
 def packages(

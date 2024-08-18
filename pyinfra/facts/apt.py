@@ -116,13 +116,13 @@ class AptKeys(GpgFactBase):
     def requires_command(self) -> str:
         return "apt-key"
 
-class AptDistUpgradeWillChange(FactBase):
+class SimulateOperationWillChange(FactBase):
     """
-    Checks if 'apt-get dist-upgrade' will perform any changes.
+    Simulate an 'apt-get' operation and try to detect if any changes would be performed.
     """
 
-    def command(self) -> str:
-        return noninteractive_apt("dist-upgrade --dry-run")
+    def command(self, command: str) -> str:
+        return noninteractive_apt(f"{command} --dry-run")
 
     def requires_command(self) -> str:
         return "apt-get"
@@ -141,4 +141,4 @@ class AptDistUpgradeWillChange(FactBase):
                 }
 
         # We did not find the line we expected:
-        raise Exception()
+        raise Exception("Did not find proposed changes in output")
