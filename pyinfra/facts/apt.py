@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import re
 
+from typing_extensions import TypedDict
+
 from pyinfra.api import FactBase
 
 from .gpg import GpgFactBase
 from .util import make_cat_files_command
+
 
 def noninteractive_apt(command: str, force=False):
     args = ["DEBIAN_FRONTEND=noninteractive apt-get -y"]
@@ -116,7 +119,15 @@ class AptKeys(GpgFactBase):
     def requires_command(self) -> str:
         return "apt-key"
 
-class SimulateOperationWillChange(FactBase):
+
+class AptSimulationDict(TypedDict):
+    upgraded: int
+    newly_installed: int
+    removed: int
+    not_upgraded: int
+
+
+class SimulateOperationWillChange(FactBase[AptSimulationDict]):
     """
     Simulate an 'apt-get' operation and try to detect if any changes would be performed.
     """
@@ -127,7 +138,7 @@ class SimulateOperationWillChange(FactBase):
     def requires_command(self) -> str:
         return "apt-get"
 
-    def process(self, output) -> bool:
+    def process(self, output) -> AptSimulationDict:
         # We are looking for a line similar to
         # "3 upgraded, 0 newly installed, 0 to remove and 0 not upgraded."
         for line in output:
