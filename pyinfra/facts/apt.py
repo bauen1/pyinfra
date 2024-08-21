@@ -135,7 +135,7 @@ class SimulateOperationWillChange(FactBase[AptSimulationDict]):
     def command(self, command: str) -> str:
         return noninteractive_apt(f"{command} --dry-run")
 
-    def requires_command(self) -> str:
+    def requires_command(self, command: str) -> str:
         return "apt-get"
 
     def process(self, output) -> AptSimulationDict:
