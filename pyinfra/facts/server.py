@@ -5,7 +5,7 @@ import re
 import shutil
 from datetime import datetime
 from tempfile import mkdtemp
-from typing import Dict, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from dateutil.parser import parse as parse_date
 from distro import distro
@@ -355,6 +355,57 @@ class Sysctl(FactBase):
                 sysctls[key] = values
 
         return sysctls
+
+
+class GroupInfo(TypedDict):
+    name: str
+    password: str
+    gid: int
+    user_list: list[str]
+
+
+def _group_info_from_group_str(info: str) -> GroupInfo:
+    """
+    Parses an entry from /etc/group or a similar source, e.g.
+    'plugdev:x:46:sysadmin,user2' into a GroupInfo dict object
+    """
+
+    fields = info.split(":")
+
+    if len(fields) != 4:
+        raise ValueError(f"Error parsing group '{info}', expected exactly 4 fields separated by :")
+
+    return {
+        "name": fields[0],
+        "password": fields[1],
+        "gid": int(fields[2]),
+        "user_list": fields[3].split(","),
+    }
+
+
+class Group(FactBase[GroupInfo]):
+    """
+    Returns information on a specific group on the system.
+    """
+
+    def command(self, group):
+        # FIXME: the '|| true' ensures 'process' is called, even if
+        #        getent was unable to find information on the group
+        #        There must be a better way to do this !
+        #        e.g. allow facts 'process' method access to the process
+        #        return code ?
+        return f"getent group {group} || true"
+
+    default = None
+
+    def process(self, output: Iterable[str]) -> str:
+        group_string = next(iter(output), None)
+
+        if group_string is None:
+            # This will happen if the group was simply not found
+            return None
+
+        return _group_info_from_group_str(group_string)
 
 
 class Groups(FactBase[List[str]]):
