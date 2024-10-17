@@ -133,7 +133,8 @@ class SimulateOperationWillChange(FactBase[AptSimulationDict]):
     """
 
     def command(self, command: str) -> str:
-        return noninteractive_apt(f"{command} --dry-run")
+        # LC_ALL=C: Ensure the output is in english, as we want to parse it
+        return "LC_ALL=C " + noninteractive_apt(f"{command} --dry-run")
 
     def requires_command(self, command: str) -> str:
         return "apt-get"
