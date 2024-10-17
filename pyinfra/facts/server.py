@@ -506,7 +506,20 @@ class Crontab(FactBase[Dict[str, CrontabDict]]):
         return crons
 
 
-class Users(FactBase):
+class UserInfo(TypedDict):
+    name: str
+    comment: str
+    home: str
+    shell: str
+    group: str
+    groups: list[str]
+    uid: int
+    gid: int
+    lastlog: str
+    password: str
+
+
+class Users(FactBase[dict[str, UserInfo]]):
     """
     Returns a dictionary of users -> details.
 
@@ -543,7 +556,7 @@ class Users(FactBase):
 
     default = dict
 
-    def process(self, output):
+    def process(self, output: Iterable[str]) -> dict[str, UserInfo]:
         users = {}
         rex = r"[A-Z][a-z]{2} [A-Z][a-z]{2} {1,2}\d+ .+$"
 
