@@ -420,6 +420,9 @@ class Groups(FactBase[List[str]]):
         # all groups / users, in which case only the local groups will be returned
         return "getent group"
 
+    def requires_command(self) -> str:
+        return "getent"
+
     default = list
 
     def process(self, output) -> list[str]:
