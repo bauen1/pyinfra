@@ -530,10 +530,10 @@ class Users(FactBase):
         }
     """
 
-    def command(self):
+    def command(self) -> str:
         return """
         for i in `getent passwd | cut -d: -f1`; do
-            ENTRY=`grep ^$i: $(getent passwd)`;
+            ENTRY=`getent passwd | grep ^$i:`;
             LASTLOG_RAW=`(lastlog -u $i 2> /dev/null || lastlogin $i 2> /dev/null)`;
             LASTLOG=`echo $LASTLOG_RAW | grep ^$i | tr -s ' '`;
             PASSWORD=`grep ^$i: /etc/shadow | cut -d: -f2`;
