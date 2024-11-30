@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, Iterable
+import json
+from typing import Any, Dict, Iterable, Optional
+from typing_extensions import override
 
 from pyinfra.api import FactBase, QuoteString, StringCommand
 
@@ -132,3 +134,26 @@ class SystemdEnabled(SystemdStatus):
 
     state_key = "UnitFileState"
     state_values = ["enabled", "static"]
+
+
+class SystemdNetworkdStatus(FactBase[Dict[str, Any]]):
+    """
+    JSON output of 'networkctl status [interface]'
+    """
+
+    def requires_command(self, *args: Any, **kwargs: Any) -> str:
+        return "networkctl"
+
+    def command(self, interface: Optional[str] = None) -> str:
+        if interface is None:
+            return "networkctl --json=short status"
+        else:
+            return f"networkctl --json=short status {interface}"
+
+    @override
+    def process(self, output: Iterable[str]) -> Dict[str, Any]:
+        output = list(output)
+        assert len(output) == 1
+        value = json.loads(output[0])
+        assert isinstance(value, dict)
+        return value
