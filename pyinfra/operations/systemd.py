@@ -43,6 +43,7 @@ def service(
     reloaded=False,
     command: str | None = None,
     enabled: bool | None = None,
+    masked: bool | None = None,
     daemon_reload=False,
     user_mode=False,
     machine: str | None = None,
@@ -57,6 +58,7 @@ def service(
     + reloaded: whether the unit should be reloaded
     + command: custom command to pass like: ``/etc/rc.d/<name> <command>``
     + enabled: whether this unit should be enabled/disabled on boot
+    + masked: wether this unit should be masked
     + daemon_reload: reload the systemd daemon to read updated unit files
     + user_mode: whether to use per-user systemd (systemctl --user) or not
     + machine: the machine name to connect to
