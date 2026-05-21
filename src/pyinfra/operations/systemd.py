@@ -4,9 +4,12 @@ Manage systemd services.
 
 from __future__ import annotations
 
+from collections.abc import Generator
+
 from pyinfra import host
 from pyinfra.api import QuoteString, StringCommand, operation
-from pyinfra.facts.systemd import SystemdEnabled, SystemdStatus, _make_systemctl_cmd
+from pyinfra.facts.systemd import SystemdEnabled, SystemdStatus, _make_systemctl_cmd,
+LogindUserLingerState
 
 from .util.service import handle_service_control
 
@@ -146,3 +149,16 @@ def service(
         # Is enabled and want disabled?
         elif is_enabled and enabled is False:
             yield StringCommand(systemctl_cmd, "disable", QuoteString(service))
+
+
+@operation()
+def set_linger(user: str, enabled: bool = True) -> Generator[StringCommand]:
+    linger_enabled = host.get_fact(LogindUserLingerState, user=user)
+
+    if linger_enabled == enabled:
+        host.noop(f"linger for {user} is already {linger_enabled} and requested {enable}")
+    elif linger_enabled and not enable:
+        yield StringCommand('loginctl', 'enable-linger', QuoteString(user))
+    else:
+        assert (not linger_enabled) and enable
+        yield StringCommand('loginctl', 'disable-linger', QuoteString(user))
