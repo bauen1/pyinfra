@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import re
+from pathlib import PosixPurePath
 from collections.abc import Iterable
 
 from typing_extensions import override
 
-from pyinfra.api import FactBase, QuoteString, StringCommand
+from pyinfra.api import FactBase, QuoteString, StringCommand, make_formatted_string_command
 
 # Valid unit names consist of a "name prefix" and a dot and a suffix specifying the unit type.
 # The "unit prefix" must consist of one or more valid characters
@@ -39,6 +40,22 @@ def _make_systemctl_cmd(user_mode=False, machine=None, user_name=None):
         systemctl_cmd.append(f"--machine={user_name}@.host")
 
     return StringCommand(*systemctl_cmd)
+
+
+def _make_loginctl_cmd(machine=None, user_name=None) -> StringCommand:
+    # base command:
+    loginctl_cmd = ["loginctl"]
+
+    if machine is not None:
+        if user_name is not None:
+            loginctl_cmd.append(f"--machine={user_name}@{machine}")
+        else:
+            loginctl_cmd.append(f"--machine={user_name}@.host")
+    elif user_name is not None:
+        # If only the user is given, assume that the connection should be made to the local machine
+        loginctl_cmd.append(f"--machine={user_name}@.host")
+
+    return StringCommand(*loginctl_cmd)
 
 
 class SystemdStatus(FactBase[dict[str, bool]]):
@@ -145,3 +162,48 @@ class SystemdEnabled(SystemdStatus):
 
     state_key = "UnitFileState"
     state_values = ["enabled", "static"]
+
+
+class LogindShowUser(FactBase[object]):
+    """
+
+    TODO: document
+    """
+
+    @override
+    def requires_command(self, *args, **kwargs) -> str:
+        return "loginctl"
+
+    @override
+    def command(
+        self,
+        user: str,
+        machine: str | None = None,
+        user_name: str | None = None,
+        services: str | list[str] | None = None,
+    ) -> StringCommand:
+        # FIXME: Handle non-existant user
+        return StringCommand(_make_loginctl_cmd(machine=machine, user_name=user_name),
+                             "show-user",
+                             QuoteString(user))
+
+    @override
+    def process(self, output) -> dict[str, bool]:
+        raise NotImplementedError()
+
+class LogindUserLingerState(FactBase[bool]):
+    """
+    Checks if linger is enabled for a specific user.
+    """
+
+    @override
+    def command(self, user: str) -> StringCommand:
+        linger_file_path = PosixPurePath("/var/lib/systemd/linger") / user
+        return make_formatted_string_command(
+            # we only care if this file exists or not, it should be empty:
+            "test -e {0} && echo 'linger-enabled' || echo ''",
+            QuoteString(linger_file_path))
+
+    @override
+    def process(self, output: Iterable[str]) -> bool:
+        return list(output)[0] == "linger-enabled"
